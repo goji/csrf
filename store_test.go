@@ -11,6 +11,9 @@ import (
 	"github.com/zenazn/goji/web"
 )
 
+// Check Store implementations
+var _ Store = &CookieStore{}
+
 // brokenSaveStore is a CSRF store that cannot, well, save.
 type brokenSaveStore struct {
 	Store
