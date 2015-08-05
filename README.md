@@ -44,6 +44,9 @@ in order to protect malicious POST requests being made:
 package main
 
 import (
+    "html/template"
+    "net/http"
+
     "github.com/goji/csrf"
     "github.com/zenazn/goji"
 )

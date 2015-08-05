@@ -8,8 +8,8 @@ import (
 	"github.com/zenazn/goji/web"
 )
 
-// Store represents the session storage used for CSRF tokens.
-type Store interface {
+// store represents the session storage used for CSRF tokens.
+type store interface {
 	// Get returns the real CSRF token from the store.
 	Get(c *web.C, r *http.Request) ([]byte, error)
 	// Save stores the real CSRF token in the store and writes a
@@ -20,8 +20,8 @@ type Store interface {
 	Save(token []byte, w http.ResponseWriter) error
 }
 
-// CookieStore is a signed cookie session store for CSRF tokens.
-type CookieStore struct {
+// cookieStore is a signed cookie session store for CSRF tokens.
+type cookieStore struct {
 	name   string
 	maxAge int
 	sc     *securecookie.SecureCookie
@@ -29,7 +29,7 @@ type CookieStore struct {
 
 // Get retrieves a CSRF token from the session cookie. It returns an empty token
 // if decoding fails (e.g. HMAC validation fails or the named cookie doesn't exist).
-func (cs *CookieStore) Get(c *web.C, r *http.Request) ([]byte, error) {
+func (cs *cookieStore) Get(c *web.C, r *http.Request) ([]byte, error) {
 	// Retrieve the cookie from the request
 	cookie, err := r.Cookie(cs.name)
 	if err != nil {
@@ -47,7 +47,7 @@ func (cs *CookieStore) Get(c *web.C, r *http.Request) ([]byte, error) {
 }
 
 // Save stores the CSRF token in the session cookie.
-func (cs *CookieStore) Save(token []byte, w http.ResponseWriter) error {
+func (cs *cookieStore) Save(token []byte, w http.ResponseWriter) error {
 	// Generate an encoded cookie value with the CSRF token.
 	encoded, err := cs.sc.Encode(cs.name, token)
 	if err != nil {

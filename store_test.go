@@ -12,11 +12,11 @@ import (
 )
 
 // Check Store implementations
-var _ Store = &CookieStore{}
+var _ store = &cookieStore{}
 
 // brokenSaveStore is a CSRF store that cannot, well, save.
 type brokenSaveStore struct {
-	Store
+	store
 }
 
 func (bs *brokenSaveStore) Get(*web.C, *http.Request) ([]byte, error) {
@@ -26,13 +26,6 @@ func (bs *brokenSaveStore) Get(*web.C, *http.Request) ([]byte, error) {
 
 func (bs *brokenSaveStore) Save(realToken []byte, w http.ResponseWriter) error {
 	return errors.New("test error")
-}
-
-func setStore(s Store) func(*csrf) error {
-	return func(cs *csrf) error {
-		cs.store = s
-		return nil
-	}
 }
 
 // Tests for failure if the middleware can't save to the Store.
@@ -74,12 +67,12 @@ func TestCookieDecode(t *testing.T) {
 	// Test with a nil hash key
 	sc := securecookie.New(nil, nil)
 	sc.MaxAge(age)
-	store := &CookieStore{cookieName, age, sc}
+	st := &cookieStore{cookieName, age, sc}
 
 	// Set a fake cookie value so r.Cookie passes.
 	r.Header.Set("Cookie", fmt.Sprintf("%s=%s", cookieName, "notacookie"))
 
-	_, err = store.Get(&web.C{}, r)
+	_, err = st.Get(&web.C{}, r)
 	if err == nil {
 		t.Fatal("cookiestore did not report an invalid hashkey on decode")
 	}
@@ -92,11 +85,11 @@ func TestCookieEncode(t *testing.T) {
 	// Test with a nil hash key
 	sc := securecookie.New(nil, nil)
 	sc.MaxAge(age)
-	store := &CookieStore{cookieName, age, sc}
+	st := &cookieStore{cookieName, age, sc}
 
 	rr := httptest.NewRecorder()
 
-	err := store.Save(nil, rr)
+	err := st.Save(nil, rr)
 	if err == nil {
 		t.Fatal("cookiestore did not report an invalid hashkey on encode")
 	}
