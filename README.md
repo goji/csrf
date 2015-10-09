@@ -32,7 +32,7 @@ goji.Use(csrf.Protect([]byte("32-byte-long-auth-key")))
 
 ... and then collect the token with `csrf.Token(c, r)` before passing it to the
 template, JSON body or HTTP header (you pick!). goji/csrf inspects HTTP headers
-(first) and form bodies (second) on subsequent POST/PUT/PATCH/DELETE/etc.
+(first) and the form body (second) on subsequent POST/PUT/PATCH/DELETE/etc.
 requests for the token.
 
 ### HTML Forms
