@@ -139,6 +139,8 @@ func Protect(authKey []byte, opts ...func(*csrf) error) func(*web.C, http.Handle
 		// Create an authenticated securecookie instance.
 		if cs.sc == nil {
 			cs.sc = securecookie.New(authKey, nil)
+			// Use JSON serialization (faster than one-off gob encoding)
+			cs.sc.SetSerializer(securecookie.JSONEncoder{})
 			// Set the MaxAge of the underlying securecookie.
 			cs.sc.MaxAge(cs.opts.MaxAge)
 		}
