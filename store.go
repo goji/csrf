@@ -22,9 +22,13 @@ type store interface {
 
 // cookieStore is a signed cookie session store for CSRF tokens.
 type cookieStore struct {
-	name   string
-	maxAge int
-	sc     *securecookie.SecureCookie
+	name     string
+	maxAge   int
+	secure   bool
+	httpOnly bool
+	path     string
+	domain   string
+	sc       *securecookie.SecureCookie
 }
 
 // Get retrieves a CSRF token from the session cookie. It returns an empty token
