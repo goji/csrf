@@ -18,6 +18,7 @@ func TestOptions(t *testing.T) {
 	header := "X-AUTH-TOKEN"
 	field := "authenticity_token"
 	errorHandler := unauthorizedHandler
+	name := "_goji_goji_goji"
 
 	testOpts := []func(*csrf) error{
 		MaxAge(age),
@@ -28,6 +29,7 @@ func TestOptions(t *testing.T) {
 		RequestHeader(header),
 		FieldName(field),
 		ErrorHandler(web.HandlerFunc(errorHandler)),
+		CookieName(name),
 	}
 
 	// Parse our test options and check that they set the related struct fields.
@@ -64,5 +66,10 @@ func TestOptions(t *testing.T) {
 	if !reflect.ValueOf(cs.opts.ErrorHandler).IsValid() {
 		t.Errorf("ErrorHandler not set correctly: got %v want %v",
 			reflect.ValueOf(cs.opts.ErrorHandler).IsValid(), reflect.ValueOf(errorHandler).IsValid())
+	}
+
+	if cs.opts.CookieName != name {
+		t.Errorf("CookieName not set correctly: got %v want %v",
+			cs.opts.CookieName, name)
 	}
 }
