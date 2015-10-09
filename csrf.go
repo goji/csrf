@@ -132,6 +132,10 @@ func Protect(authKey []byte, opts ...func(*csrf) error) func(*web.C, http.Handle
 			cs.opts.FieldName = fieldName
 		}
 
+		if cs.opts.CookieName == "" {
+			cs.opts.CookieName = cookieName
+		}
+
 		if cs.opts.RequestHeader == "" {
 			cs.opts.RequestHeader = headerName
 		}
