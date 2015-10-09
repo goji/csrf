@@ -70,6 +70,7 @@ type options struct {
 	RequestHeader string
 	FieldName     string
 	ErrorHandler  web.Handler
+	CookieName    string
 }
 
 // Protect is HTTP middleware that provides Cross-Site Request Forgery
