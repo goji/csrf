@@ -67,7 +67,7 @@ func TestCookieDecode(t *testing.T) {
 	// Test with a nil hash key
 	sc := securecookie.New(nil, nil)
 	sc.MaxAge(age)
-	st := &cookieStore{cookieName, age, sc}
+	st := &cookieStore{cookieName, age, true, true, "", "", sc}
 
 	// Set a fake cookie value so r.Cookie passes.
 	r.Header.Set("Cookie", fmt.Sprintf("%s=%s", cookieName, "notacookie"))
@@ -85,7 +85,7 @@ func TestCookieEncode(t *testing.T) {
 	// Test with a nil hash key
 	sc := securecookie.New(nil, nil)
 	sc.MaxAge(age)
-	st := &cookieStore{cookieName, age, sc}
+	st := &cookieStore{cookieName, age, true, true, "", "", sc}
 
 	rr := httptest.NewRecorder()
 
