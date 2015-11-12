@@ -70,6 +70,7 @@ type options struct {
 	RequestHeader string
 	FieldName     string
 	ErrorHandler  web.Handler
+	CookieName    string
 }
 
 // Protect is HTTP middleware that provides Cross-Site Request Forgery
@@ -131,6 +132,10 @@ func Protect(authKey []byte, opts ...func(*csrf) error) func(*web.C, http.Handle
 			cs.opts.FieldName = fieldName
 		}
 
+		if cs.opts.CookieName == "" {
+			cs.opts.CookieName = cookieName
+		}
+
 		if cs.opts.RequestHeader == "" {
 			cs.opts.RequestHeader = headerName
 		}
@@ -138,6 +143,8 @@ func Protect(authKey []byte, opts ...func(*csrf) error) func(*web.C, http.Handle
 		// Create an authenticated securecookie instance.
 		if cs.sc == nil {
 			cs.sc = securecookie.New(authKey, nil)
+			// Use JSON serialization (faster than one-off gob encoding)
+			cs.sc.SetSerializer(securecookie.JSONEncoder{})
 			// Set the MaxAge of the underlying securecookie.
 			cs.sc.MaxAge(cs.opts.MaxAge)
 		}
@@ -145,9 +152,13 @@ func Protect(authKey []byte, opts ...func(*csrf) error) func(*web.C, http.Handle
 		if cs.st == nil {
 			// Default to the cookieStore
 			cs.st = &cookieStore{
-				name:   cookieName,
-				maxAge: cs.opts.MaxAge,
-				sc:     cs.sc,
+				name:     cs.opts.CookieName,
+				maxAge:   cs.opts.MaxAge,
+				secure:   cs.opts.Secure,
+				httpOnly: cs.opts.HttpOnly,
+				path:     cs.opts.Path,
+				domain:   cs.opts.Domain,
+				sc:       cs.sc,
 			}
 		}
 
