@@ -20,7 +20,7 @@ func TestOptions(t *testing.T) {
 	errorHandler := unauthorizedHandler
 	name := "_goji_goji_goji"
 
-	testOpts := []func(*csrf) error{
+	testOpts := []Option{
 		MaxAge(age),
 		Domain(domain),
 		Path(path),
