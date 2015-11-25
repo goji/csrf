@@ -18,6 +18,7 @@ const tokenLength = 32
 // Context/session keys & prefixes
 const (
 	tokenKey    string = "goji.csrf.Token"
+	tokenFieldName    string = "goji.csrf.FieldName"
 	errorKey    string = "goji.csrf.Error"
 	cookieName  string = "_goji_csrf"
 	errorPrefix string = "goji/csrf: "
@@ -203,6 +204,8 @@ func (cs csrf) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Save the masked token to the request context
 	cs.c.Env[tokenKey] = mask(realToken, cs.c, r)
+	// Save the field name to the reqest context
+	cs.c.Env[tokenFieldName] = cs.opts.FieldName
 
 	// HTTP methods not defined as idempotent ("safe") under RFC7231 require
 	// inspection.
