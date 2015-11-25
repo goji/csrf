@@ -48,7 +48,7 @@ func FailureReason(c web.C, r *http.Request) error {
 //
 func TemplateField(c web.C, r *http.Request) template.HTML {
 	fragment := fmt.Sprintf(`<input type="hidden" name="%s" value="%s">`,
-		c.Env["goji.csrf.FieldName"], Token(c, r))
+		fieldName, Token(c, r))
 
 	return template.HTML(fragment)
 }

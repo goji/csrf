@@ -91,6 +91,7 @@ func RequestHeader(header string) Option {
 func FieldName(name string) Option {
 	return func(cs *csrf) error {
 		cs.opts.FieldName = name
+		fieldName = name
 		return nil
 	}
 }
