@@ -63,6 +63,10 @@ func TestOptions(t *testing.T) {
 		t.Errorf("FieldName not set correctly: got %v want %v", cs.opts.FieldName, field)
 	}
 
+	if fieldName != field {
+		t.Errorf("FieldName not set correctly: got %v want %v", fieldName, field)
+	}
+
 	if !reflect.ValueOf(cs.opts.ErrorHandler).IsValid() {
 		t.Errorf("ErrorHandler not set correctly: got %v want %v",
 			reflect.ValueOf(cs.opts.ErrorHandler).IsValid(), reflect.ValueOf(errorHandler).IsValid())
