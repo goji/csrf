@@ -260,8 +260,6 @@ func TestWithReferer(t *testing.T) {
 	rr = httptest.NewRecorder()
 	s.ServeHTTP(rr, r)
 
-	t.Log(r.Header)
-
 	if rr.Code != http.StatusOK {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
 			rr.Code, http.StatusOK)
