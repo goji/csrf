@@ -91,9 +91,21 @@ func unmask(issued []byte) []byte {
 // requestToken returns the issued token (pad + masked token) from the HTTP POST
 // body or HTTP header. It will return nil if the token fails to decode.
 func (cs *csrf) requestToken(r *http.Request) []byte {
+	// 1. Check the HTTP header first.
 	issued := r.Header.Get(cs.opts.RequestHeader)
+
+	// 2. Fall back to the POST (form) value.
 	if issued == "" {
 		issued = r.PostFormValue(cs.opts.FieldName)
+	}
+
+	// 3. Finally, fall back to the multipart form (if set).
+	if issued == "" && r.MultipartForm != nil {
+		vals := r.MultipartForm.Value[cs.opts.FieldName]
+
+		if len(vals) > 0 {
+			issued = vals[0]
+		}
 	}
 
 	// Decode the "issued" (pad + masked) token sent in the request. Return a
