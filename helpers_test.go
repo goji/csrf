@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -25,6 +26,8 @@ var testTemplate = `
 </body>
 </html>
 `
+var testFieldName = "custom_csrf_field_name"
+var testTemplateField = `<input type="hidden" name="%s" value="%s">`
 
 // Test that our form helpers correctly inject a token into the response body.
 func TestFormToken(t *testing.T) {
@@ -217,5 +220,36 @@ func TestGenerateRandomBytes(t *testing.T) {
 	b, err := generateRandomBytes(tokenLength)
 	if err == nil {
 		t.Fatalf("generateRandomBytes did not report a short read: only read %d bytes", len(b))
+	}
+}
+
+func TestTemplateField(t *testing.T) {
+	s := web.New()
+	CSRF := Protect(
+		testKey,
+		FieldName(testFieldName),
+	)
+	s.Use(CSRF)
+
+	var token string
+	var customTemplateField string
+	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
+		token = Token(c, r)
+		customTemplateField = string(TemplateField(c, r))
+	}))
+
+	r, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	s.ServeHTTP(rr, r)
+
+	expectedTemplateField := fmt.Sprintf(testTemplateField, testFieldName, token)
+
+	if customTemplateField != expectedTemplateField {
+		t.Fatalf("templateField not set correctly: got %v want %v",
+			customTemplateField, expectedTemplateField)
 	}
 }
