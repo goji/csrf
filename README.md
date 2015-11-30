@@ -13,11 +13,11 @@ forgery](http://blog.codinghorror.com/preventing-csrf-and-xsrf-attacks/) (CSRF)
   templates to replace a `{{ .csrfField }}` template tag with a hidden input
   field. 
 
-This library is designed to work with the [Goji](https://github.com/zenazn/goji)
-micro-framework, which is a simple web framework for Go that is broadly
-compatible with other parts of the Go ecosystem. It makes use of Goji's `web.C` 
-request context, which doesn't rely on a global map, and is therefore safe to 
-attach to your top-level router (if you so wish).
+This library is designed to work with not just the the [Goji](https://github.com/goji/goji)
+micro-framework, but any framework that accepts the `func(context.Context, w http.ResponseWriter, r *http.Request)` 
+signature. This makes it compatible with other parts of the Go ecosystem. The
+`context.Context` request context doesn't rely on a global map, and is therefore
+free from contention in a busy web service.
 
 The library also assumes HTTPS by default: sending cookies over vanilla HTTP 
 is risky and you're likely to get hurt. 
@@ -27,7 +27,7 @@ is risky and you're likely to get hurt.
 goji/csrf is easy to use: add the middleware to your stack with the below:
 
 ```go
-goji.Use(csrf.Protect([]byte("32-byte-long-auth-key")))
+goji.UseC(csrf.Protect([]byte("32-byte-long-auth-key")))
 ```
 
 ... and then collect the token with `csrf.Token(c, r)` before passing it to the
@@ -47,25 +47,27 @@ import (
     "html/template"
     "net/http"
 
+    "goji.io"
     "github.com/goji/csrf"
-    "github.com/zenazn/goji"
+    "github.com/zenazn/goji/graceful"
 )
 
 func main() {
+    m := goji.NewMux()
     // Add the middleware to your router.
-    goji.Use(csrf.Protect([]byte("32-byte-long-auth-key")))
-    goji.Get("/signup", ShowSignupForm)
+    m.UseC(csrf.Protect([]byte("32-byte-long-auth-key")))
+    m.HandleFuncC(pat.Get("/signup"), ShowSignupForm)
     // POST requests without a valid token will return a HTTP 403 Forbidden.
-    goji.Post("/signup/post", SubmitSignupForm)
+    m.HandleFuncC(pat.Post("/signup/post"), SubmitSignupForm)
 
-    goji.Serve()
+    graceful.ListenAndServe(":8000", m)
 }
 
-func ShowSignupForm(c web.C, w http.ResponseWriter, r *http.Request) {
+func ShowSignupForm(ctx context.Context, w http.ResponseWriter, r *http.Request) {
     // signup_form.tmpl just needs a {{ .csrfField }} template tag for
     // csrf.TemplateField to inject the CSRF token into. Easy!
     t.ExecuteTemplate(w, "signup_form.tmpl", map[string]interface{
-        csrf.TemplateTag: csrf.TemplateField(c, r),
+        csrf.TemplateTag: csrf.TemplateField(ctx, r),
     })
     // We could also retrieve the token directly from csrf.Token(c, r) and 
     // set it in the request header - w.Header.Set("X-CSRF-Token", token)
@@ -73,7 +75,7 @@ func ShowSignupForm(c web.C, w http.ResponseWriter, r *http.Request) {
     // framework.
 }
 
-func SubmitSignupForm(c web.C, w http.ResponseWriter, r *http.Request) {
+func SubmitSignupForm(ctx context.Context, w http.ResponseWriter, r *http.Request) {
     // We can trust that requests making it this far have satisfied
     // our CSRF protection requirements.
 }
@@ -91,38 +93,38 @@ as we don't handle any POST/PUT/DELETE requests with our top-level router.
 package main
 
 import (
+    "goji.io"
     "github.com/goji/csrf"
     "github.com/zenazn/goji/graceful"
-    "github.com/zenazn/goji/web"
 )
 
 func main() {
-    r := web.New()
+    m := goji.NewMux()
     // Our top-level router doesn't need CSRF protection: it's simple.
-    r.Get("/", ShowIndex)
+    m.HandleFuncC(pat.Get("/"), ShowIndex)
 
-    api := web.New()
-    r.Handle("/api/*", s)
+    api := goji.NewMux()
+    m.HandleC("/api/*", api)
     // ... but our /api/* routes do, so we add it to the sub-router only.
-    s.Use(csrf.Protect([]byte("32-byte-long-auth-key")))
+    api.UseC(csrf.Protect([]byte("32-byte-long-auth-key")))
 
-    s.Get("/api/user/:id", GetUser)
-    s.Post("/api/user", PostUser)
+    api.Get("/api/user/:id", GetUser)
+    api.Post("/api/user", PostUser)
 
-    graceful.ListenAndServe(":8000", r)
+    graceful.ListenAndServe(":8000", m)
 }
 
-func GetUser(c web.C, w http.ResponseWriter, r *http.Request) {
+func GetUser(ctx context.Context, w http.ResponseWriter, r *http.Request) {
     // Authenticate the request, get the :id from the route params, 
     // and fetch the user from the DB, etc.
 
     // Get the token and pass it in the CSRF header. Our JSON-speaking client 
     // or JavaScript framework can now read the header and return the token in 
     // in its own "X-CSRF-Token" request header on the subsequent POST.
-    w.Header().Set("X-CSRF-Token", csrf.Token(c, r))
+    w.Header().Set("X-CSRF-Token", csrf.Token(ctx, r))
     b, err := json.Marshal(user)
     if err != nil {
-        http.Error(...)
+        http.Error(w, http.StatusText(500), 500)
         return
     }
 
@@ -138,23 +140,25 @@ goji/csrf provides options for changing these as you see fit:
 
 ```go
 func main() {
+    m := goji.NewMux()
     CSRF := csrf.Protect(
             []byte("a-32-byte-long-key-goes-here"),
             csrf.RequestHeader("Authenticity-Token"),
             csrf.FieldName("authenticity_token"),
-            // Note that csrf.ErrorHandler takes a Goji web.Handler type, else 
-            // your error handler can't retrieve the error reason from the context.
-            // The signature `func UnauthHandler(c web.C, w http.ResponseWriter, r *http.Request)`
-            // is a web.Handler, and the simplest to use if you'd like to serve
+            // Note that csrf.ErrorHandler takes a Goji goji.Handler type, else
+            // your error handler can't retrieve the error reason from the
+            // context.
+            // The signature `func UnauthHandler(ctx context.Context, w http.ResponseWriter, r *http.Request)`
+            // is a goji.Handler, and the simplest to use if you'd like to serve
             // "pretty" error pages (who doesn't?).
-            csrf.ErrorHandler(web.HandlerFunc(serverError(403))),
+            csrf.ErrorHandler(goji.HandlerFunc(serverError(403))),
         )
 
-    goji.Use(CSRF)
-    goji.Get("/signup", GetSignupForm)
-    goji.Post("/signup", PostSignupForm)
+    m.UseC(CSRF)
+    m.HandleFuncC(pat.Get("/signup"), GetSignupForm)
+    m.HandleFuncC(pat.Post("/signup"), PostSignupForm)
 
-    goji.Serve()
+    graceful.ListenAndServe(":8000", m)
 }
 ```
 

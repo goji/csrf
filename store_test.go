@@ -7,8 +7,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"goji.io"
+
+	"goji.io/pat"
+
 	"github.com/gorilla/securecookie"
-	"github.com/zenazn/goji/web"
 )
 
 // Check Store implementations
@@ -19,7 +22,7 @@ type brokenSaveStore struct {
 	store
 }
 
-func (bs *brokenSaveStore) Get(*web.C, *http.Request) ([]byte, error) {
+func (bs *brokenSaveStore) Get(*http.Request) ([]byte, error) {
 	// Generate an invalid token so we can progress to our Save method
 	return generateRandomBytes(24)
 }
@@ -30,10 +33,10 @@ func (bs *brokenSaveStore) Save(realToken []byte, w http.ResponseWriter) error {
 
 // Tests for failure if the middleware can't save to the Store.
 func TestStoreCannotSave(t *testing.T) {
-	s := web.New()
+	m := goji.NewMux()
 	bs := &brokenSaveStore{}
-	s.Use(Protect(testKey, setStore(bs)))
-	s.Get("/", testHandler)
+	m.UseC(Protect(testKey, setStore(bs)))
+	m.HandleFuncC(pat.Get("/"), testHandler)
 
 	r, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -41,7 +44,7 @@ func TestStoreCannotSave(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("broken store did not set an error status: got %v want %v",
@@ -72,7 +75,7 @@ func TestCookieDecode(t *testing.T) {
 	// Set a fake cookie value so r.Cookie passes.
 	r.Header.Set("Cookie", fmt.Sprintf("%s=%s", cookieName, "notacookie"))
 
-	_, err = st.Get(&web.C{}, r)
+	_, err = st.Get(r)
 	if err == nil {
 		t.Fatal("cookiestore did not report an invalid hashkey on decode")
 	}

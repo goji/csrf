@@ -6,19 +6,22 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zenazn/goji/web"
+	"goji.io/pat"
+
+	"golang.org/x/net/context"
+
+	"goji.io"
 )
 
 var testKey = []byte("keep-it-secret-keep-it-safe-----")
-var testHandler = web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {})
+var testHandler = goji.HandlerFunc(func(ctx context.Context, w http.ResponseWriter, r *http.Request) {})
 
 // TestProtect is a high-level test to make sure the middleware returns the
 // wrapped handler with a 200 OK status.
 func TestProtect(t *testing.T) {
-	s := web.New()
-	s.Use(Protect(testKey))
-
-	s.Get("/", testHandler)
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
+	m.HandleFuncC(pat.Get("/"), testHandler)
 
 	r, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -26,7 +29,7 @@ func TestProtect(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -41,11 +44,9 @@ func TestProtect(t *testing.T) {
 // Test that idempotent methods return a 200 OK status and that non-idempotent
 // methods return a 403 Forbidden status when a CSRF cookie is not present.
 func TestMethods(t *testing.T) {
-	s := web.New()
-	s.Use(Protect(testKey))
-
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-	}))
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
+	m.HandleFuncC(pat.New("/"), testHandler)
 
 	// Test idempontent ("safe") methods
 	for _, method := range safeMethods {
@@ -55,7 +56,7 @@ func TestMethods(t *testing.T) {
 		}
 
 		rr := httptest.NewRecorder()
-		s.ServeHTTP(rr, r)
+		m.ServeHTTP(rr, r)
 
 		if rr.Code != http.StatusOK {
 			t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -76,7 +77,7 @@ func TestMethods(t *testing.T) {
 		}
 
 		rr := httptest.NewRecorder()
-		s.ServeHTTP(rr, r)
+		m.ServeHTTP(rr, r)
 
 		if rr.Code != http.StatusForbidden {
 			t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -90,22 +91,15 @@ func TestMethods(t *testing.T) {
 
 }
 
-// Tests for failure if the cookie containing the session is removed from the
-// request.
-func TestNoCookie(t *testing.T) {
-
-}
-
 // TestBadCookie tests for failure when a cookie header is modified (malformed).
 func TestBadCookie(t *testing.T) {
-	s := web.New()
-	CSRF := Protect(testKey)
-	s.Use(CSRF)
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
 
 	var token string
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-		token = Token(c, r)
-	}))
+	m.HandleFuncC(pat.New("/"), func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		token = Token(ctx, r)
+	})
 
 	// Obtain a CSRF cookie via a GET request.
 	r, err := http.NewRequest("GET", "http://www.gorillatoolkit.org/", nil)
@@ -114,7 +108,7 @@ func TestBadCookie(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	// POST the token back in the header.
 	r, err = http.NewRequest("POST", "http://www.gorillatoolkit.org/", nil)
@@ -129,7 +123,7 @@ func TestBadCookie(t *testing.T) {
 	r.Header.Set("Referer", "http://www.gorillatoolkit.org/")
 
 	rr = httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("middleware failed to reject a bad cookie: got %v want %v",
@@ -140,10 +134,9 @@ func TestBadCookie(t *testing.T) {
 
 // Responses should set a "Vary: Cookie" header to protect client/proxy caching.
 func TestVaryHeader(t *testing.T) {
-
-	s := web.New()
-	s.Use(Protect(testKey))
-	s.Get("/", testHandler)
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
+	m.HandleFuncC(pat.Get("/"), testHandler)
 
 	r, err := http.NewRequest("HEAD", "https://www.golang.org/", nil)
 	if err != nil {
@@ -151,7 +144,7 @@ func TestVaryHeader(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -165,10 +158,9 @@ func TestVaryHeader(t *testing.T) {
 
 // Requests with no Referer header should fail.
 func TestNoReferer(t *testing.T) {
-
-	s := web.New()
-	s.Use(Protect(testKey))
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {}))
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
+	m.HandleFuncC(pat.Get("/"), testHandler)
 
 	r, err := http.NewRequest("POST", "https://golang.org/", nil)
 	if err != nil {
@@ -176,7 +168,7 @@ func TestNoReferer(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -187,15 +179,13 @@ func TestNoReferer(t *testing.T) {
 // TestBadReferer checks that HTTPS requests with a Referer that does not
 // match the request URL correctly fail CSRF validation.
 func TestBadReferer(t *testing.T) {
-
-	s := web.New()
-	CSRF := Protect(testKey)
-	s.Use(CSRF)
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
 
 	var token string
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-		token = Token(c, r)
-	}))
+	m.HandleFuncC(pat.New("/"), func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		token = Token(ctx, r)
+	})
 
 	// Obtain a CSRF cookie via a GET request.
 	r, err := http.NewRequest("GET", "https://www.gorillatoolkit.org/", nil)
@@ -204,7 +194,7 @@ func TestBadReferer(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	// POST the token back in the header.
 	r, err = http.NewRequest("POST", "https://www.gorillatoolkit.org/", nil)
@@ -219,7 +209,7 @@ func TestBadReferer(t *testing.T) {
 	r.Header.Set("Referer", "http://goji.io")
 
 	rr = httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusForbidden {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -229,14 +219,13 @@ func TestBadReferer(t *testing.T) {
 
 // Requests with a valid Referer should pass.
 func TestWithReferer(t *testing.T) {
-	s := web.New()
-	CSRF := Protect(testKey)
-	s.Use(CSRF)
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
 
 	var token string
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-		token = Token(c, r)
-	}))
+	m.HandleFuncC(pat.New("/"), func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		token = Token(ctx, r)
+	})
 
 	// Obtain a CSRF cookie via a GET request.
 	r, err := http.NewRequest("GET", "http://www.gorillatoolkit.org/", nil)
@@ -245,7 +234,7 @@ func TestWithReferer(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	// POST the token back in the header.
 	r, err = http.NewRequest("POST", "http://www.gorillatoolkit.org/", nil)
@@ -258,7 +247,7 @@ func TestWithReferer(t *testing.T) {
 	r.Header.Set("Referer", "http://www.gorillatoolkit.org/")
 
 	rr = httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -268,6 +257,7 @@ func TestWithReferer(t *testing.T) {
 
 // TestFormField tests that a token in the form field takes precedence over a
 // token in the HTTP header.
+// TODO(matt): Finish this test.
 func TestFormField(t *testing.T) {
 
 }

@@ -9,26 +9,26 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/zenazn/goji/web"
+	"golang.org/x/net/context"
 )
 
 // Token returns a masked CSRF token ready for passing into HTML template or
 // a JSON response body. An empty token will be returned if the middleware
 // has not been applied (which will fail subsequent validation).
-func Token(c web.C, r *http.Request) string {
-	if maskedToken, ok := c.Env[tokenKey].(string); ok {
+func Token(ctx context.Context, r *http.Request) string {
+	if maskedToken, ok := ctx.Value(tokenKey).(string); ok {
 		return maskedToken
 	}
 
 	return ""
 }
 
-// FailureReason makes CSRF validation errors available in Goji's request
+// FailureReason makes CSRF validation errors available in the request
 // context.
 // This is useful when you want to log the cause of the error or report it to
 // client.
-func FailureReason(c web.C, r *http.Request) error {
-	if err, ok := c.Env[errorKey].(error); ok {
+func FailureReason(ctx context.Context, r *http.Request) error {
+	if err, ok := ctx.Value(errorKey).(error); ok {
 		return err
 	}
 
@@ -46,9 +46,9 @@ func FailureReason(c web.C, r *http.Request) error {
 //      // ... becomes:
 //      <input type="hidden" name="goji.csrf.Token" value="<token>">
 //
-func TemplateField(c web.C, r *http.Request) template.HTML {
+func TemplateField(ctx context.Context, r *http.Request) template.HTML {
 	fragment := fmt.Sprintf(`<input type="hidden" name="%s" value="%s">`,
-		c.Env[formKey], Token(c, r))
+		ctx.Value(formKey), Token(ctx, r))
 
 	return template.HTML(fragment)
 }
@@ -60,7 +60,7 @@ func TemplateField(c web.C, r *http.Request) template.HTML {
 // token and returning them together as a 64-byte slice. This effectively
 // randomises the token on a per-request basis without breaking multiple browser
 // tabs/windows.
-func mask(realToken []byte, c *web.C, r *http.Request) string {
+func mask(realToken []byte, r *http.Request) string {
 	otp, err := generateRandomBytes(tokenLength)
 	if err != nil {
 		return ""
@@ -180,7 +180,7 @@ func contains(vals []string, s string) bool {
 	return false
 }
 
-// envError stores a CSRF error in the request context.
-func envError(c *web.C, err error) {
-	c.Env[errorKey] = err
+// setEnvError stores a CSRF error in the request context.
+func setEnvError(ctx context.Context, err error) {
+	ctx = context.WithValue(ctx, errorKey, err)
 }

@@ -1,10 +1,6 @@
 package csrf
 
-import (
-	"net/http"
-
-	"github.com/zenazn/goji/web"
-)
+import "goji.io"
 
 // Option describes a functional option for configuring the CSRF handler.
 type Option func(*csrf) error
@@ -70,7 +66,7 @@ func HttpOnly(h bool) Option {
 //
 // Note that a custom error handler can also access the csrf.Failure(c, r)
 // function to retrieve the CSRF validation reason from Goji's request context.
-func ErrorHandler(h web.Handler) Option {
+func ErrorHandler(h goji.Handler) Option {
 	return func(cs *csrf) error {
 		cs.opts.ErrorHandler = h
 		return nil
@@ -117,7 +113,7 @@ func setStore(s store) Option {
 
 // parseOptions parses the supplied options functions and returns a configured
 // csrf handler.
-func parseOptions(h http.Handler, opts ...Option) *csrf {
+func parseOptions(h goji.Handler, opts ...Option) *csrf {
 	// Set the handler to call after processing.
 	cs := &csrf{
 		h: h,

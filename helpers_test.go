@@ -14,7 +14,10 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/zenazn/goji/web"
+	"goji.io/pat"
+	"golang.org/x/net/context"
+
+	"goji.io"
 )
 
 var testTemplate = `
@@ -31,18 +34,18 @@ var testTemplateField = `<input type="hidden" name="%s" value="%s">`
 
 // Test that our form helpers correctly inject a token into the response body.
 func TestFormToken(t *testing.T) {
-	s := web.New()
-	s.Use(Protect(testKey))
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
 
 	// Make the token available outside of the handler for comparison.
 	var token string
-	s.Get("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-		token = Token(c, r)
+	m.HandleFuncC(pat.New("/"), func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		token = Token(ctx, r)
 		t := template.Must((template.New("base").Parse(testTemplate)))
 		t.Execute(w, map[string]interface{}{
-			TemplateTag: TemplateField(c, r),
+			TemplateTag: TemplateField(ctx, r),
 		})
-	}))
+	})
 
 	r, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -50,7 +53,7 @@ func TestFormToken(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -68,18 +71,18 @@ func TestFormToken(t *testing.T) {
 
 // Test that we can extract a CSRF token from a multipart form.
 func TestMultipartFormToken(t *testing.T) {
-	s := web.New()
-	s.Use(Protect(testKey))
+	m := goji.NewMux()
+	m.UseC(Protect(testKey))
 
 	// Make the token available outside of the handler for comparison.
 	var token string
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-		token = Token(c, r)
+	m.HandleFuncC(pat.New("/"), func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		token = Token(ctx, r)
 		t := template.Must((template.New("base").Parse(testTemplate)))
 		t.Execute(w, map[string]interface{}{
-			TemplateTag: TemplateField(c, r),
+			TemplateTag: TemplateField(ctx, r),
 		})
-	}))
+	})
 
 	r, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -87,7 +90,7 @@ func TestMultipartFormToken(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	// Set up our multipart form
 	var b bytes.Buffer
@@ -112,7 +115,7 @@ func TestMultipartFormToken(t *testing.T) {
 	setCookie(rr, r)
 
 	rr = httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("middleware failed to pass to the next handler: got %v want %v",
@@ -134,7 +137,7 @@ func TestMaskUnmaskTokens(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	issued := mask(realToken, nil, nil)
+	issued := mask(realToken, nil)
 	decoded, err := base64.StdEncoding.DecodeString(issued)
 	if err != nil {
 		t.Fatal(err)
@@ -224,19 +227,16 @@ func TestGenerateRandomBytes(t *testing.T) {
 }
 
 func TestTemplateField(t *testing.T) {
-	s := web.New()
-	CSRF := Protect(
-		testKey,
-		FieldName(testFieldName),
-	)
-	s.Use(CSRF)
+	m := goji.NewMux()
+	CSRF := Protect(testKey, FieldName(testFieldName))
+	m.UseC(CSRF)
 
 	var token string
 	var customTemplateField string
-	s.Handle("/", web.HandlerFunc(func(c web.C, w http.ResponseWriter, r *http.Request) {
-		token = Token(c, r)
-		customTemplateField = string(TemplateField(c, r))
-	}))
+	m.HandleFuncC(pat.New("/"), func(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+		token = Token(ctx, r)
+		customTemplateField = string(TemplateField(ctx, r))
+	})
 
 	r, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -244,7 +244,7 @@ func TestTemplateField(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	s.ServeHTTP(rr, r)
+	m.ServeHTTP(rr, r)
 
 	expectedTemplateField := fmt.Sprintf(testTemplateField, testFieldName, token)
 

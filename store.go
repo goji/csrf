@@ -5,13 +5,12 @@ import (
 	"time"
 
 	"github.com/gorilla/securecookie"
-	"github.com/zenazn/goji/web"
 )
 
 // store represents the session storage used for CSRF tokens.
 type store interface {
 	// Get returns the real CSRF token from the store.
-	Get(c *web.C, r *http.Request) ([]byte, error)
+	Get(r *http.Request) ([]byte, error)
 	// Save stores the real CSRF token in the store and writes a
 	// cookie to the http.ResponseWriter.
 	// For non-cookie stores, the cookie should contain a unique (256 bit) ID
@@ -33,7 +32,7 @@ type cookieStore struct {
 
 // Get retrieves a CSRF token from the session cookie. It returns an empty token
 // if decoding fails (e.g. HMAC validation fails or the named cookie doesn't exist).
-func (cs *cookieStore) Get(c *web.C, r *http.Request) ([]byte, error) {
+func (cs *cookieStore) Get(r *http.Request) ([]byte, error) {
 	// Retrieve the cookie from the request
 	cookie, err := r.Cookie(cs.name)
 	if err != nil {
