@@ -1,7 +1,7 @@
 # goji/csrf
 [![GoDoc](https://godoc.org/github.com/goji/csrf?status.svg)](https://godoc.org/github.com/goji/csrf) [![Build Status](https://travis-ci.org/goji/csrf.svg?branch=master)](https://travis-ci.org/goji/csrf)
 
-**Goji v2 users**: There's a preview branch with support for [Goji
+> **Goji v2 users**: There's a preview branch with support for [Goji
 v2](https://github.com/goji/goji) and any other `context.Context` aware
 muxes/applications (i.e. not just Goji!) available under the
 [csrf-v2-net-context](https://github.com/goji/csrf/tree/csrf-v2-net-context)
